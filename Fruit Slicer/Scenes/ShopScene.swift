@@ -11,6 +11,7 @@ import GameplayKit
 class ShopScene: SKScene {
     
     private var scrollNode = SKNode()
+    private var starsLabel = SKLabelNode()
     private var lastTouchPosition: CGPoint?
     private var touchStartTime: TimeInterval = 0
     private var touchMoved = false
@@ -55,20 +56,8 @@ class ShopScene: SKScene {
     }
     
     private func loadBladeItems() {
-        let userDefaults = UserDefaults.standard
-        let ownedBlades = userDefaults.array(forKey: "ownedBlades") as? [Int] ?? [0]
-        let selectedBladeIndex = userDefaults.integer(forKey: "selectedBladeIndex")
-        
-        bladeItems = [
-            BladeItem(imageName: "white", price: 0, isOwned: ownedBlades.contains(0), isSelected: selectedBladeIndex == 0),
-            BladeItem(imageName: "black", price: 100, isOwned: ownedBlades.contains(1), isSelected: selectedBladeIndex == 1),
-            BladeItem(imageName: "red", price: 250, isOwned: ownedBlades.contains(2), isSelected: selectedBladeIndex == 2),
-            BladeItem(imageName: "green", price: 500, isOwned: ownedBlades.contains(3), isSelected: selectedBladeIndex == 3),
-            BladeItem(imageName: "blue", price: 1000, isOwned: ownedBlades.contains(4), isSelected: selectedBladeIndex == 4),
-            BladeItem(imageName: "purple", price: 1000, isOwned: ownedBlades.contains(5), isSelected: selectedBladeIndex == 5)
-        ]
-        
-        self.selectedBladeIndex = selectedBladeIndex
+        bladeItems = BladeItem.bladeItems
+        self.selectedBladeIndex = BladeItem.selectedBladeIndex
         self.currentViewingIndex = 0
     }
     
@@ -134,10 +123,10 @@ class ShopScene: SKScene {
         
         let starIcon = SKSpriteNode(imageNamed: "star")
         starIcon.size = CGSize(width: 30, height: 30)
-        starIcon.position = CGPoint(x: 25, y: 0)
+        starIcon.position = CGPoint(x: 30, y: 0)
         background.addChild(starIcon)
         
-        let starsLabel = SKLabelNode(text: "\(totalStars)")
+        starsLabel = SKLabelNode(text: "\(totalStars)")
         starsLabel.fontName = "AvenirNext-Bold"
         starsLabel.fontSize = 30
         starsLabel.fontColor = SKColor.white
@@ -186,9 +175,7 @@ class ShopScene: SKScene {
     
     private func updateTotalStarsDisplay() {
         let totalStars = UserDefaults.standard.integer(forKey: "totalStars")
-        if let starsLabel = totalStarsDisplay.children.first(where: { $0 is SKLabelNode }) as? SKLabelNode {
-            starsLabel.text = "\(totalStars)"
-        }
+        starsLabel.text = "\(totalStars)"
     }
     
     private func updateButtonState() {
@@ -262,6 +249,7 @@ class ShopScene: SKScene {
         for i in 0..<bladeItems.count {
             bladeItems[i].isSelected = (i == index)
         }
+        print(UserDefaults.standard.integer(forKey: "selectedBladeIndex"))
         
         updateCarousel()
         updateButtonState()

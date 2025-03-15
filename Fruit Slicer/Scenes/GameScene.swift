@@ -4,13 +4,13 @@
 //
 //  Created by Мирсаит Сабирзянов on 12.03.2025.
 //
-//let fruits = ["apple", "cherry", "lemon", "orange", "plum", "strawberry"]
 
 import SpriteKit
 import GameplayKit
 
 class GameScene: SKScene {
     var scoreLabel: SKLabelNode!
+    var levelLabel: SKLabelNode!
     var scoreBackground: SKSpriteNode!
     var score = 0 {
         didSet { scoreLabel.text = "\(score)" }
@@ -25,7 +25,7 @@ class GameScene: SKScene {
     private let fruitSize: CGFloat = 75.0
     private let fruitRadius: CGFloat = 37.5
     
-    let fruits = ["apple", "cherry", "lemon", "orange", "plum", "strawberry"]
+    private let fruits = ["apple", "cherry", "lemon", "orange", "plum", "strawberry"]
     var maxLevel = UserDefaults.standard.integer(forKey: "maxLevel")
     var selectedLevel = UserDefaults.standard.integer(forKey: "selectedLevel")
 
@@ -35,7 +35,9 @@ class GameScene: SKScene {
     private var initialFruitCount = 0
     private var cutFruitCount = 0
     private var minSuccessPercent: CGFloat = 30.0
-    
+    private var bladeItems: [BladeItem] = []
+    private var selectedBladeIndex: Int = 0
+
     private var pauseButton: SKSpriteNode!
     private var isGamePaused = false
     private var pauseOverlay: SKNode?
@@ -53,31 +55,19 @@ class GameScene: SKScene {
         background.zPosition = -1
         addChild(background)
         
-        scoreBackground = SKSpriteNode(imageNamed: "score_cell")
-        scoreBackground.position = CGPoint(x: frame.maxX - 60, y: frame.maxY - 100)
-        scoreBackground.size = CGSize(width: 100, height: 60)
-        scoreBackground.zPosition = 100
-        addChild(scoreBackground)
+        addScoreCell()
         
-        scoreLabel = SKLabelNode(text: "0")
-        scoreLabel.fontSize = 30
-        scoreLabel.fontColor = .white
-        scoreLabel.fontName = "AvenirNext-Bold"
-        scoreLabel.verticalAlignmentMode = .center
-        scoreLabel.horizontalAlignmentMode = .center
-        scoreLabel.position = CGPoint(x: 0, y: 0)
-        scoreLabel.zPosition = 101
-        scoreBackground.addChild(scoreLabel)
+        addLevelLabel()
         
         createPauseButton()
+        
+        loadBladeItems()
         
         fruitCount = selectedLevel * 5
         bombCount = selectedLevel / 2
         
         initialFruitCount = fruitCount
-        
-        print(fruitCount, bombCount)
-        
+                
         run(SKAction.repeat(SKAction.sequence([
             SKAction.run(spawnObject),
             SKAction.wait(forDuration: 1.0)
@@ -102,6 +92,36 @@ class GameScene: SKScene {
     
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         lastTouchPosition = nil
+    }
+    
+    private func addScoreCell() {
+        scoreBackground = SKSpriteNode(imageNamed: "score_cell")
+        scoreBackground.position = CGPoint(x: frame.maxX - 60, y: frame.maxY - 100)
+        scoreBackground.size = CGSize(width: 100, height: 60)
+        scoreBackground.zPosition = 100
+        addChild(scoreBackground)
+        
+        scoreLabel = SKLabelNode(text: "0")
+        scoreLabel.fontSize = 30
+        scoreLabel.fontColor = .white
+        scoreLabel.fontName = "AvenirNext-Bold"
+        scoreLabel.verticalAlignmentMode = .center
+        scoreLabel.horizontalAlignmentMode = .center
+        scoreLabel.position = CGPoint(x: 0, y: 0)
+        scoreLabel.zPosition = 101
+        scoreBackground.addChild(scoreLabel)
+    }
+    
+    private func addLevelLabel() {
+        levelLabel = SKLabelNode(text: "\(selectedLevel) LEVEL")
+        levelLabel.fontSize = 30
+        levelLabel.fontColor = .white
+        levelLabel.fontName = "AvenirNext-Bold"
+        levelLabel.verticalAlignmentMode = .center
+        levelLabel.horizontalAlignmentMode = .center
+        levelLabel.position = CGPoint(x: frame.midX, y: frame.maxY - 100)
+        levelLabel.zPosition = 101
+        addChild(levelLabel)
     }
     
     private func createPauseButton() {
@@ -160,6 +180,11 @@ class GameScene: SKScene {
         self.isPaused = false
     }
     
+    private func loadBladeItems() {
+        bladeItems = BladeItem.bladeItems
+        self.selectedBladeIndex = BladeItem.selectedBladeIndex
+    }
+    
     private func createMenuButtonWithImage(name: String, imageName: String, position: CGPoint) -> SKNode {
         let buttonNode = SKNode()
         buttonNode.name = name
@@ -180,14 +205,15 @@ class GameScene: SKScene {
     }
     
     func spawnObject() {
-        if !isGameActive {
-            return
-        }
+        guard isGameActive else { return }
         
         var isBomb = false
         if bombCount > 0 {
-            isBomb = Bool.random()
+            let itemsCount = bombCount + fruitCount
+            let randomValue = Int.random(in: 1...itemsCount)
+            isBomb = randomValue <= bombCount
         }
+        
         let fruitName = fruits.randomElement()!
         let object = SKSpriteNode(imageNamed: isBomb ? "bomb" : fruitName)
         object.name = isBomb ? "bomb" : fruitName
@@ -217,8 +243,6 @@ class GameScene: SKScene {
         if isBomb { bombCount -= 1 } else { fruitCount -= 1 }
         
         let activeObjects = children.filter { fruits.contains($0.name ?? "") || $0.name == "bomb" }
-        print(activeObjects)
-        print("Check activeObjects,count: \(activeObjects.count)")
         
         let wait = SKAction.wait(forDuration: 3.0)
         let remove = SKAction.removeFromParent()
@@ -227,7 +251,6 @@ class GameScene: SKScene {
         }
         
         object.run(SKAction.sequence([wait, remove, checkCompletion]))
-        
         addChild(object)
     }
 
@@ -235,8 +258,7 @@ class GameScene: SKScene {
     private func checkGameCompletion() {
         
         let activeObjects = children.filter { fruits.contains($0.name ?? "") || $0.name == "bomb" }
-        print(activeObjects)
-        print("Check activeObjects,count: \(activeObjects.count)")
+
         if (fruitCount + bombCount) > 0 {
             return
         }
@@ -255,7 +277,6 @@ class GameScene: SKScene {
     private func calculateStars() -> Int {
         
         let cutPercent = (CGFloat(cutFruitCount) / CGFloat(initialFruitCount)) * 100.0
-        print("\(cutPercent) %, \(cutFruitCount)")
         if cutPercent >= 90.0 {
             return 3
         } else if cutPercent >= 75.0 {
@@ -344,14 +365,16 @@ class GameScene: SKScene {
         
         lastTouchPosition = point
     }
+    
     // MARK: - Swipe line
+    
     func drawSwipeTrail(from startPoint: CGPoint, to endPoint: CGPoint) {
         let trail = SKShapeNode()
         let path = CGMutablePath()
         path.move(to: startPoint)
         path.addLine(to: endPoint)
         trail.path = path
-        trail.strokeColor = .red
+        trail.strokeColor = bladeItems[selectedBladeIndex].color
         trail.lineWidth = 4.0
         addChild(trail)
         
@@ -369,6 +392,7 @@ class GameScene: SKScene {
     }
 
     // MARK: - Slice
+    
     func performSlice(on fruit: SKSpriteNode, name: String) {
         let fruitPosition = fruit.position
         fruit.removeFromParent()
@@ -447,6 +471,7 @@ class GameScene: SKScene {
     }
 
 // MARK: - CompleteLevel
+    
     func completeLevel() {
         
         isGameActive = false
@@ -457,7 +482,7 @@ class GameScene: SKScene {
         
         let currentStars = UserDefaults.standard.integer(forKey: "totalStars")
         
-        UserDefaults.standard.set(currentStars + starsEarned, forKey: "totalStars")
+        UserDefaults.standard.set(currentStars + cutFruitCount, forKey: "totalStars")
         
         UserDefaults.standard.set(starsEarned, forKey: "stars_level_\(selectedLevel)")
 
